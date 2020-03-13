@@ -39,5 +39,13 @@ io.on('connection', client => {
   client.on('update player', data => { 
     client.broadcast.emit('player update', data); 
   });
+
+  client.on('update pos', data => { 
+    client.broadcast.emit('update player pos', data); 
+  });
+
+  client.on('new shot', data => { 
+    client.broadcast.emit('add shot', data); 
+  });
   client.on('disconnect', () => { console.log('user disconnected');});
 });

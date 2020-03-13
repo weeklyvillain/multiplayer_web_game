@@ -11,12 +11,10 @@
     var can = document.getElementById('canvas');
     can.height = 600; can.width = 800;
     var ctx = can.getContext('2d');
-    var playerimg = document.getElementById("player");
-    var bulletimg = document.getElementById("bullet");
     var game_objects = [];
 
     class Bullet {
-        constructor(x, y, width, height, vel_x, vel_y, angle, img, context) {
+        constructor(x, y, width, height, vel_x, vel_y, angle, img, dmg) {
             this.vel_x = vel_x;
             this.vel_y = vel_y;
             this.x = x;
@@ -25,7 +23,7 @@
             this.height = height;
             this.angle = angle;
             this.image = img;
-            this.ctx = context;
+            this.dmg = dmg;
         }
 
         draw() {
@@ -34,15 +32,15 @@
             var img = new Image;
             img.src = this.image;
 
-            this.ctx.save();
+            ctx.save();
 
-            this.ctx.translate(center_x, center_y);
+            ctx.translate(center_x, center_y);
 
-            this.ctx.rotate(this.angle * Math.PI/180);
+            ctx.rotate(this.angle * Math.PI/180);
             
-            this.ctx.drawImage(this.image, - this.width/2, - this.height/2, this.width, this.height);
+            ctx.drawImage(img, - this.width/2, - this.height/2, this.width, this.height);
 
-            this.ctx.restore();  
+            ctx.restore();  
         }
 
         update_position() {
@@ -53,7 +51,7 @@
 
 
     class Player {
-        constructor(id, x, y, width, height, vel, rotation_speed, img, context) {
+        constructor(id, x, y, width, height, vel, rotation_speed, img, hp) {
             this.id = id;
             this.vel = vel;
             this.x = x;
@@ -61,7 +59,7 @@
             this.width = width;
             this.height = height;
             this.image = img;
-            this.ctx = context;
+            this.hp = hp;
             this.speed = 0;
             this.angle_speed = 0;
             this.angle = 0;
@@ -113,8 +111,9 @@
             }
             var vel_y = 5 * -Math.cos(Math.abs(this.angle) * Math.PI / 180);
             //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
-            game_objects.push(new Bullet(this.x + this.width / 2, this.y + this.height / 2, 20, 20, vel_x , vel_y, this.angle - 90, bulletimg, ctx));
-            
+            var bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 20, 20, vel_x , vel_y, this.angle - 90, "http://localhost:3000/bullet_bill.webp", 1);
+            game_objects.push(bullet);
+            socket.emit('new shot', JSON.stringify(bullet));  
         }
         key_down(keycode) {
                 // left
@@ -162,14 +161,14 @@
             if (keycode == 40) {
                 this.speed = 0;
             }
-            socket.emit('update player', JSON.stringify(player1))
+            socket.emit('update pos', JSON.stringify(player1))
         }
     }
 
 
     
     //Player(x, y, width, height, speed, rotation_speed, img, context)
-    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://localhost:3000/player2.png", ctx);
+    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://localhost:3000/player2.png", 5);
     game_objects.push(player1);
 
     socket.emit('join', JSON.stringify(player1))
@@ -177,7 +176,7 @@
     socket.on('add player', function(data){
         var p = JSON.parse(data);
         console.log(p);
-        var new_p = new Player(p.id, p.x, p.y, p.width, p.height, p.speed, p.rotation_speed, p.image, ctx);
+        var new_p = new Player(p.id, p.x, p.y, p.width, p.height, p.speed, p.rotation_speed, p.image, p.hp);
         if(!game_objects.find(o => o.id === new_p.id) && new_p.id != player1.id) {
             game_objects.push(new_p);
             socket.emit('join', JSON.stringify(player1));
@@ -192,8 +191,28 @@
             if(obj.id == p.id) {
                 obj.speed = p.speed;
                 obj.angle_speed = p.angle_speed;
+                obj.hp = p.hp;
             }
         }
+    });
+
+    socket.on('update player pos', function(data){
+        var p = JSON.parse(data);
+        for (const obj of game_objects) {
+            if(obj.id == p.id) {
+                obj.x = p.x;
+                obj.y = p.y;
+                obj.speed = p.speed;
+                obj.angle = p.angle;
+                obj.angle_speed = p.angle_speed;
+            }
+        }
+    });
+
+    socket.on('add shot', function(data){
+        var p = JSON.parse(data);
+        //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
+        game_objects.push(new Bullet(p.x, p.y, p.width, p.height, p.vel_x, p.vel_y, p.angle, p.image, 1));
     });
     window.setInterval(gameloop, 25);
     
@@ -218,7 +237,7 @@ window.addEventListener("keyup", keysReleased, false);
 function keysPressed(e) {
     console.log(e.keyCode);
     player1.key_down(e.keyCode);
-    //e.preventDefault();
+    e.preventDefault();
 }
  
 function keysReleased(e) {
