@@ -48,6 +48,10 @@ io.on('connection', client => {
     client.broadcast.emit('add shot', data); 
   });
 
+  client.on('damage player', data => { 
+    client.broadcast.emit('player took damage', data); 
+  });
+
   client.on('remove player', data => { 
     console.log('user disconnected');
     console.log(data)

@@ -2,11 +2,14 @@
 <html>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <body>
-        <img id="player" src="http://localhost:3000/player2.png" style="display: none; width: 50px; height: 50px;">
-        <img id="bullet" src="http://localhost:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
+        <img id="player" src="http://192.168.8.111:3000/player2.png" style="display: none; width: 50px; height: 50px;">
+        <img id="bullet" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
+        <img id="heart" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
         <canvas id="canvas" style="border-style: solid;"></canvas>
+        <div id="playerList">
+        </div>
         <script>
-            var socket = io('http://localhost:3000');
+            var socket = io('http://192.168.8.111:3000');
             
     var can = document.getElementById('canvas');
     can.height = 600; can.width = 800;
@@ -14,7 +17,7 @@
     var game_objects = [];
 
     class Bullet {
-        constructor(x, y, width, height, vel_x, vel_y, angle, img, dmg) {
+        constructor(x, y, width, height, vel_x, vel_y, angle, img, dmg, parent) {
             this.vel_x = vel_x;
             this.vel_y = vel_y;
             this.x = x;
@@ -24,6 +27,7 @@
             this.angle = angle;
             this.image = img;
             this.dmg = dmg;
+            this.parent = parent;
         }
 
         draw() {
@@ -43,16 +47,33 @@
             ctx.restore();  
         }
 
-        update_position() {
-            
-            this.y += this.vel_y;
-            this.x += this.vel_x;
-            // Remove self if out of bounds
-            // TODO: move to other function
+        check_hit() {
             if(this.x > can.width || this.x < 0 || this.y > can.height || this.y < 0) { 
                 game_objects.splice(game_objects.indexOf(this), 1)       
                 console.log("tog bort skott")         
             }
+            //console.log(this.parent)
+
+            for(const obj of game_objects) {
+                //console.log("obj parent" + obj.id)
+                if(this.parent != obj.id && obj.id != undefined && this.parent != undefined) {
+                    if(this.x < (obj.x + obj.width) && this.x + this.width > obj.x 
+                        && this.y < obj.y + obj.height && this.y + this.height > obj.y) {
+                            // Removes this object if hit something
+                            game_objects.splice(game_objects.indexOf(this), 1)
+                            socket.emit("damage player", JSON.stringify(obj)) 
+                    }    
+                }
+            }
+        }
+
+        update_position() {
+            this.y += this.vel_y;
+            this.x += this.vel_x;
+            this.check_hit();
+            // Remove self if out of bounds
+            // TODO: move to other function
+            
         }
     }
 
@@ -119,7 +140,7 @@
             var vel_y = 5 * -Math.cos(Math.abs(this.angle) * Math.PI / 180);
             //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
             // -10 is the width and heitght of the bullet we need to subtract these so that the bullet is centered
-            var bullet = new Bullet(this.x + this.width / 2 - 10, this.y + this.height / 2 - 10, 20, 20, vel_x , vel_y, this.angle - 90, "http://localhost:3000/bullet_bill.webp", 1);
+            var bullet = new Bullet(this.x + this.width / 2 - 10, this.y + this.height / 2 - 10, 20, 20, vel_x , vel_y, this.angle - 90, "http://192.168.8.111:3000/bullet_bill.webp", 1, this.id);
             game_objects.push(bullet);
             socket.emit('new shot', JSON.stringify(bullet));  
         }
@@ -176,7 +197,7 @@
 
     
     //Player(x, y, width, height, speed, rotation_speed, img, context)
-    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://localhost:3000/player2.png", 5);
+    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://192.168.8.111:3000/player2.png", 5);
     game_objects.push(player1);
 
     socket.emit('join', JSON.stringify(player1))
@@ -190,6 +211,7 @@
             socket.emit('join', JSON.stringify(player1));
         }
         game_objects = Array.from(new Set(game_objects));
+        
         //console.log(game_objects)
     });
 
@@ -200,6 +222,7 @@
                 obj.speed = p.speed;
                 obj.angle_speed = p.angle_speed;
                 obj.hp = p.hp;
+                
             }
         }
     });
@@ -213,6 +236,17 @@
                 obj.speed = p.speed;
                 obj.angle = p.angle;
                 obj.angle_speed = p.angle_speed;
+                var listNode = document.getElementById("playerList");
+                var playerNode = document.getElementById(p.id);
+                if(playerNode != undefined) {
+                    listNode.removeChild(playerNode);
+                }
+                var node = document.createElement("p");
+                var textnode = document.createTextNode(p.id + " HP: " + p.hp);
+                node.appendChild(textnode);
+                node.setAttribute('id', p.id);
+                listNode.appendChild(node)
+                //console.log(listNode)
             }
         }
     });
@@ -220,7 +254,7 @@
     socket.on('add shot', function(data){
         var p = JSON.parse(data);
         //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
-        game_objects.push(new Bullet(p.x + p.width / 2 - 10, p.y + p.height / 2 - 10, p.width, p.height, p.vel_x, p.vel_y, p.angle, p.image, 1));
+        game_objects.push(new Bullet(p.x + p.width / 2 - 10, p.y + p.height / 2 - 10, p.width, p.height, p.vel_x, p.vel_y, p.angle, p.image, 1, p.parent));
     });
 
     socket.on('remove object', function(data){
@@ -228,11 +262,30 @@
         //console.log(p)
         for (let i = 0; i < game_objects.length; i++) {
             const object = game_objects[i];
-            console.log("obj id" + object.id)
-            console.log("p id" + p.id)
             if(object.id == p.id) {
                 //console.log('inne i splicen')
                 game_objects.splice(i, 1);
+            }
+        }
+    });
+
+    socket.on('player took damage', function(data){
+        var p = JSON.parse(data);
+        //console.log(p)
+        for (let i = 0; i < game_objects.length; i++) {
+            const object = game_objects[i];
+            if(object.id == p.id) {
+                //console.log('inne i splicen')
+                object.hp -= 1;
+                var listNode = document.getElementById("playerList");
+                var playerNode = document.getElementById(p.id);
+                listNode.removeChild(playerNode);
+                var node = document.createElement("p");
+                var textnode = document.createTextNode(p.id + " HP: " + p.hp);
+                node.appendChild(textnode);
+                node.setAttribute('id', p.id);
+                listNode.appendChild(node)
+                //console.log(listNode)
             }
         }
     });
