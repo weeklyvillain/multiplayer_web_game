@@ -47,5 +47,11 @@ io.on('connection', client => {
   client.on('new shot', data => { 
     client.broadcast.emit('add shot', data); 
   });
-  client.on('disconnect', () => { console.log('user disconnected');});
+
+  client.on('remove player', data => { 
+    console.log('user disconnected');
+    console.log(data)
+    client.broadcast.emit('remove object', data);
+  });
+
 });

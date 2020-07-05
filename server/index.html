@@ -44,8 +44,15 @@
         }
 
         update_position() {
+            
             this.y += this.vel_y;
             this.x += this.vel_x;
+            // Remove self if out of bounds
+            // TODO: move to other function
+            if(this.x > can.width || this.x < 0 || this.y > can.height || this.y < 0) { 
+                game_objects.splice(game_objects.indexOf(this), 1)       
+                console.log("tog bort skott")         
+            }
         }
     }
 
@@ -111,7 +118,8 @@
             }
             var vel_y = 5 * -Math.cos(Math.abs(this.angle) * Math.PI / 180);
             //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
-            var bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 20, 20, vel_x , vel_y, this.angle - 90, "http://localhost:3000/bullet_bill.webp", 1);
+            // -10 is the width and heitght of the bullet we need to subtract these so that the bullet is centered
+            var bullet = new Bullet(this.x + this.width / 2 - 10, this.y + this.height / 2 - 10, 20, 20, vel_x , vel_y, this.angle - 90, "http://localhost:3000/bullet_bill.webp", 1);
             game_objects.push(bullet);
             socket.emit('new shot', JSON.stringify(bullet));  
         }
@@ -175,14 +183,14 @@
 
     socket.on('add player', function(data){
         var p = JSON.parse(data);
-        console.log(p);
+        //console.log(p);
         var new_p = new Player(p.id, p.x, p.y, p.width, p.height, p.speed, p.rotation_speed, p.image, p.hp);
         if(!game_objects.find(o => o.id === new_p.id) && new_p.id != player1.id) {
             game_objects.push(new_p);
             socket.emit('join', JSON.stringify(player1));
         }
         game_objects = Array.from(new Set(game_objects));
-        console.log(game_objects)
+        //console.log(game_objects)
     });
 
     socket.on('player update', function(data){
@@ -212,9 +220,23 @@
     socket.on('add shot', function(data){
         var p = JSON.parse(data);
         //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
-        game_objects.push(new Bullet(p.x, p.y, p.width, p.height, p.vel_x, p.vel_y, p.angle, p.image, 1));
+        game_objects.push(new Bullet(p.x + p.width / 2 - 10, p.y + p.height / 2 - 10, p.width, p.height, p.vel_x, p.vel_y, p.angle, p.image, 1));
     });
-    window.setInterval(gameloop, 25);
+
+    socket.on('remove object', function(data){
+        var p = JSON.parse(data);
+        //console.log(p)
+        for (let i = 0; i < game_objects.length; i++) {
+            const object = game_objects[i];
+            console.log("obj id" + object.id)
+            console.log("p id" + p.id)
+            if(object.id == p.id) {
+                //console.log('inne i splicen')
+                game_objects.splice(i, 1);
+            }
+        }
+    });
+    window.setInterval(gameloop, 20);
     
     function gameloop() {
 
@@ -232,10 +254,14 @@
 window.addEventListener("keydown", keysPressed, false);
 window.addEventListener("keyup", keysReleased, false);
  
-
+window.addEventListener('unload', function (e) {
+    e.preventDefault();
+    e.returnValue = '';
+    socket.emit('remove player', JSON.stringify(player1))
+});
  
 function keysPressed(e) {
-    console.log(e.keyCode);
+    //console.log(e.keyCode);
     player1.key_down(e.keyCode);
     e.preventDefault();
 }
