@@ -5,8 +5,12 @@
         <img id="player" src="http://192.168.8.111:3000/player2.png" style="display: none; width: 50px; height: 50px;">
         <img id="bullet" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
         <img id="heart" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
+        
+        <h3 id="self_hp">HP: 5</h3>
         <canvas id="canvas" style="border-style: solid;"></canvas>
+        
         <div id="playerList">
+            <h3>Other Players:</h3>
         </div>
         <script>
             var socket = io('http://192.168.8.111:3000');
@@ -200,18 +204,30 @@
     var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://192.168.8.111:3000/player2.png", 5);
     game_objects.push(player1);
 
+    document.getElementById("self_hp").setAttribute("id", player1.id);
+
     socket.emit('join', JSON.stringify(player1))
 
     socket.on('add player', function(data){
         var p = JSON.parse(data);
         //console.log(p);
         var new_p = new Player(p.id, p.x, p.y, p.width, p.height, p.speed, p.rotation_speed, p.image, p.hp);
-        if(!game_objects.find(o => o.id === new_p.id) && new_p.id != player1.id) {
+        if(new_p.id != player1.id && !game_objects.find(obj => obj.id == new_p.id)) {
             game_objects.push(new_p);
             socket.emit('join', JSON.stringify(player1));
         }
-        game_objects = Array.from(new Set(game_objects));
         
+        game_objects = Array.from(new Set(game_objects));
+        var listNode = document.getElementById("playerList");
+        var playerNode = document.getElementById(p.id);
+        if(playerNode != undefined) {
+            listNode.removeChild(playerNode);
+        }
+        var node = document.createElement("p");
+        var textnode = document.createTextNode(p.id + " HP: " + p.hp);
+        node.appendChild(textnode);
+        node.setAttribute('id', p.id);
+        listNode.appendChild(node)
         //console.log(game_objects)
     });
 
@@ -236,16 +252,7 @@
                 obj.speed = p.speed;
                 obj.angle = p.angle;
                 obj.angle_speed = p.angle_speed;
-                var listNode = document.getElementById("playerList");
-                var playerNode = document.getElementById(p.id);
-                if(playerNode != undefined) {
-                    listNode.removeChild(playerNode);
-                }
-                var node = document.createElement("p");
-                var textnode = document.createTextNode(p.id + " HP: " + p.hp);
-                node.appendChild(textnode);
-                node.setAttribute('id', p.id);
-                listNode.appendChild(node)
+               
                 //console.log(listNode)
             }
         }
@@ -265,6 +272,8 @@
             if(object.id == p.id) {
                 //console.log('inne i splicen')
                 game_objects.splice(i, 1);
+                document.getElementById(p.id).outerHTML = "";
+
             }
         }
     });
@@ -272,23 +281,25 @@
     socket.on('player took damage', function(data){
         var p = JSON.parse(data);
         //console.log(p)
-        for (let i = 0; i < game_objects.length; i++) {
+       for (let i = 0; i < game_objects.length; i++) {
             const object = game_objects[i];
             if(object.id == p.id) {
                 //console.log('inne i splicen')
                 object.hp -= 1;
-                var listNode = document.getElementById("playerList");
-                var playerNode = document.getElementById(p.id);
-                listNode.removeChild(playerNode);
-                var node = document.createElement("p");
-                var textnode = document.createTextNode(p.id + " HP: " + p.hp);
-                node.appendChild(textnode);
-                node.setAttribute('id', p.id);
-                listNode.appendChild(node)
-                //console.log(listNode)
-            }
+                var element = document.getElementById(object.id)
+                if (element != null) {
+                    if(object.id != player1.id) {
+                        element.innerText = p.id + " HP: " + object.hp
+                    } else {
+                        element.innerText = "HP: " + object.hp
+                    }
+                }
+            } 
         }
+
+        // Update self hp display
     });
+    
     window.setInterval(gameloop, 20);
     
     function gameloop() {
@@ -311,6 +322,7 @@ window.addEventListener('unload', function (e) {
     e.preventDefault();
     e.returnValue = '';
     socket.emit('remove player', JSON.stringify(player1))
+   
 });
  
 function keysPressed(e) {
