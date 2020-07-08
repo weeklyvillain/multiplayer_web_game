@@ -2,10 +2,11 @@
 <html>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <body>
-        <img id="player" src="http://192.168.8.111:3000/player2.png" style="display: none; width: 50px; height: 50px;">
-        <img id="bullet" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
-        <img id="heart" src="http://192.168.8.111:3000/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
-        
+        <img id="player" src="/player2.png" style="display: none; width: 50px; height: 50px;">
+        <img id="bullet" src="/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
+        <img id="heart" src="/bullet_bill.webp" style="display: none; width: 50px; height: 50px;">
+        <h1>Room Name: {{roomId}}</h1>
+        <div style="display: none;" id="roomId">{{roomId}}</div>
         <h3 id="self_hp">HP: 5</h3>
         <canvas id="canvas" style="border-style: solid;"></canvas>
         
@@ -65,6 +66,7 @@
                         && this.y < obj.y + obj.height && this.y + this.height > obj.y) {
                             // Removes this object if hit something
                             game_objects.splice(game_objects.indexOf(this), 1)
+                            obj.roomId = document.getElementById("roomId").innerText;
                             socket.emit("damage player", JSON.stringify(obj)) 
                     }    
                 }
@@ -130,7 +132,12 @@
             } else {
                 this.x += this.speed * Math.sin(Math.abs(this.angle) * Math.PI / 180);
             }
+            if(this.x < 0 || this.y < 0 || this.x + this.width > can.width || this.y + this.height > can.height) {
+                this.speed = -this.speed;
+            }
+
             this.y += this.speed * Math.cos(Math.abs(this.angle) * Math.PI / 180);
+
 
         }
 
@@ -144,8 +151,9 @@
             var vel_y = 5 * -Math.cos(Math.abs(this.angle) * Math.PI / 180);
             //Bullet(x, y, width, height, vel_x, vel_y, angle, img, context)
             // -10 is the width and heitght of the bullet we need to subtract these so that the bullet is centered
-            var bullet = new Bullet(this.x + this.width / 2 - 10, this.y + this.height / 2 - 10, 20, 20, vel_x , vel_y, this.angle - 90, "http://192.168.8.111:3000/bullet_bill.webp", 1, this.id);
+            var bullet = new Bullet(this.x + this.width / 2 - 10, this.y + this.height / 2 - 10, 20, 20, vel_x , vel_y, this.angle - 90, "/bullet_bill.webp", 1, this.id);
             game_objects.push(bullet);
+            bullet.roomId = document.getElementById("roomId").innerText;
             socket.emit('new shot', JSON.stringify(bullet));  
         }
         key_down(keycode) {
@@ -201,11 +209,11 @@
 
     
     //Player(x, y, width, height, speed, rotation_speed, img, context)
-    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "http://192.168.8.111:3000/player2.png", 5);
+    var player1 = new Player(Math.random(), 200, 200, 40, 40, 4, 4, "/player2.png", 5);
     game_objects.push(player1);
 
     document.getElementById("self_hp").setAttribute("id", player1.id);
-
+    player1.roomId = document.getElementById("roomId").innerText;
     socket.emit('join', JSON.stringify(player1))
 
     socket.on('add player', function(data){
@@ -328,7 +336,7 @@ window.addEventListener('unload', function (e) {
 function keysPressed(e) {
     //console.log(e.keyCode);
     player1.key_down(e.keyCode);
-    e.preventDefault();
+    //e.preventDefault();
 }
  
 function keysReleased(e) {
